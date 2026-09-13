@@ -15,6 +15,7 @@ using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.Playlists;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Dto;
@@ -44,6 +45,7 @@ public class ItemsController : BaseJellyfinApiController
     private readonly ISessionManager _sessionManager;
     private readonly IUserDataManager _userDataRepository;
     private readonly ISearchManager _searchManager;
+    private readonly ITunerHostManager _tunerHostManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ItemsController"/> class.
@@ -56,6 +58,7 @@ public class ItemsController : BaseJellyfinApiController
     /// <param name="sessionManager">Instance of the <see cref="ISessionManager"/> interface.</param>
     /// <param name="userDataRepository">Instance of the <see cref="IUserDataManager"/> interface.</param>
     /// <param name="searchManager">Instance of the <see cref="ISearchManager"/> interface.</param>
+    /// <param name="tunerHostManager">Instance of the <see cref="ITunerHostManager"/> interface.</param>
     public ItemsController(
         IUserManager userManager,
         ILibraryManager libraryManager,
@@ -64,7 +67,8 @@ public class ItemsController : BaseJellyfinApiController
         ILogger<ItemsController> logger,
         ISessionManager sessionManager,
         IUserDataManager userDataRepository,
-        ISearchManager searchManager)
+        ISearchManager searchManager,
+        ITunerHostManager tunerHostManager)
     {
         _userManager = userManager;
         _libraryManager = libraryManager;
@@ -74,6 +78,7 @@ public class ItemsController : BaseJellyfinApiController
         _sessionManager = sessionManager;
         _userDataRepository = userDataRepository;
         _searchManager = searchManager;
+        _tunerHostManager = tunerHostManager;
     }
 
     /// <summary>
@@ -587,6 +592,38 @@ public class ItemsController : BaseJellyfinApiController
         }
 
         query.Parent = null;
+
+        if (user is not null
+            && (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvChannel) || query.IncludeItemTypes.Contains(BaseItemKind.LiveTvProgram)))
+        {
+            var allowedChannelIds = await _tunerHostManager.GetAllowedChannelItemIds(user, HttpContext.RequestAborted).ConfigureAwait(false);
+            if (allowedChannelIds is not null)
+            {
+                if (allowedChannelIds.Count == 0)
+                {
+                    return new QueryResult<BaseItemDto>(startIndex, 0, []);
+                }
+
+                if (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvChannel))
+                {
+                    var filteredItemIds = query.ItemIds.Length == 0
+                        ? allowedChannelIds.ToArray()
+                        : query.ItemIds.Where(allowedChannelIds.Contains).ToArray();
+
+                    if (filteredItemIds.Length == 0)
+                    {
+                        return new QueryResult<BaseItemDto>(startIndex, 0, []);
+                    }
+
+                    query.ItemIds = filteredItemIds;
+                }
+
+                if (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvProgram))
+                {
+                    query.ChannelIds = allowedChannelIds.ToArray();
+                }
+            }
+        }
 
         // At the user root an unfiltered, non-recursive request is a plain listing of the user's libraries
         if ((recursive.HasValue && recursive.Value) || ids.Length != 0 || item is not UserRootFolder || query.HasFilters)
