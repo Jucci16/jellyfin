@@ -593,8 +593,14 @@ public class ItemsController : BaseJellyfinApiController
 
         query.Parent = null;
 
-        if (user is not null
-            && (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvChannel) || query.IncludeItemTypes.Contains(BaseItemKind.LiveTvProgram)))
+        // BaseItemKind has two synonymous pairs for the same underlying types (see
+        // Emby.Server.Implementations/Data/ItemTypeLookup.cs): LiveTvChannel/TvChannel both resolve to
+        // LiveTvChannel, and LiveTvProgram/TvProgram both resolve to LiveTvProgram. Clients (including the
+        // official web client's search) commonly use the TvChannel/TvProgram forms, so both must be checked.
+        var queriesLiveTvChannels = query.IncludeItemTypes.Contains(BaseItemKind.LiveTvChannel) || query.IncludeItemTypes.Contains(BaseItemKind.TvChannel);
+        var queriesLiveTvPrograms = query.IncludeItemTypes.Contains(BaseItemKind.LiveTvProgram) || query.IncludeItemTypes.Contains(BaseItemKind.TvProgram);
+
+        if (user is not null && (queriesLiveTvChannels || queriesLiveTvPrograms))
         {
             var allowedChannelIds = await _tunerHostManager.GetAllowedChannelItemIds(user, HttpContext.RequestAborted).ConfigureAwait(false);
             if (allowedChannelIds is not null)
@@ -604,7 +610,7 @@ public class ItemsController : BaseJellyfinApiController
                     return new QueryResult<BaseItemDto>(startIndex, 0, []);
                 }
 
-                if (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvChannel))
+                if (queriesLiveTvChannels)
                 {
                     var filteredItemIds = query.ItemIds.Length == 0
                         ? allowedChannelIds.ToArray()
@@ -618,7 +624,7 @@ public class ItemsController : BaseJellyfinApiController
                     query.ItemIds = filteredItemIds;
                 }
 
-                if (query.IncludeItemTypes.Contains(BaseItemKind.LiveTvProgram))
+                if (queriesLiveTvPrograms)
                 {
                     query.ChannelIds = allowedChannelIds.ToArray();
                 }
