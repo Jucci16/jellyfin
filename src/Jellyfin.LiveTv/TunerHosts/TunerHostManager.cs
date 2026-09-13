@@ -6,10 +6,16 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data;
+using Jellyfin.Data.Enums;
+using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.LiveTv.Configuration;
 using Jellyfin.LiveTv.Guide;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.LiveTv;
@@ -26,6 +32,7 @@ public class TunerHostManager : ITunerHostManager
     private readonly ILogger<TunerHostManager> _logger;
     private readonly IConfigurationManager _config;
     private readonly ITaskManager _taskManager;
+    private readonly ILibraryManager _libraryManager;
     private readonly ITunerHost[] _tunerHosts;
 
     /// <summary>
@@ -34,16 +41,19 @@ public class TunerHostManager : ITunerHostManager
     /// <param name="logger">The <see cref="ILogger{T}"/>.</param>
     /// <param name="config">The <see cref="IConfigurationManager"/>.</param>
     /// <param name="taskManager">The <see cref="ITaskManager"/>.</param>
+    /// <param name="libraryManager">The <see cref="ILibraryManager"/>.</param>
     /// <param name="tunerHosts">The <see cref="IEnumerable{T}"/>.</param>
     public TunerHostManager(
         ILogger<TunerHostManager> logger,
         IConfigurationManager config,
         ITaskManager taskManager,
+        ILibraryManager libraryManager,
         IEnumerable<ITunerHost> tunerHosts)
     {
         _logger = logger;
         _config = config;
         _taskManager = taskManager;
+        _libraryManager = libraryManager;
         _tunerHosts = tunerHosts.Where(t => t.IsSupported).ToArray();
     }
 
@@ -202,5 +212,97 @@ public class TunerHostManager : ITunerHostManager
 
             return Array.Empty<TunerHostInfo>();
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<HashSet<Guid>?> GetAllowedChannelItemIds(User user, CancellationToken cancellationToken)
+    {
+        var allowedTunerHostIds = GetAllowedTunerHostIds(user);
+        if (allowedTunerHostIds is null)
+        {
+            return null;
+        }
+
+        var channelTunerHostIds = await GetChannelTunerHostIds(true, cancellationToken).ConfigureAwait(false);
+
+        var allChannels = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = [BaseItemKind.LiveTvChannel]
+        });
+
+        var result = new HashSet<Guid>();
+        foreach (var channel in allChannels)
+        {
+            if (channel is LiveTvChannel liveTvChannel
+                && !string.IsNullOrEmpty(liveTvChannel.ExternalId)
+                && channelTunerHostIds.TryGetValue(liveTvChannel.ExternalId, out var tunerIds)
+                && tunerIds.Overlaps(allowedTunerHostIds))
+            {
+                result.Add(channel.Id);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets the set of tuner host ids the given user is restricted to, or null if the user is unrestricted.
+    /// </summary>
+    private static HashSet<string>? GetAllowedTunerHostIds(User user)
+    {
+        if (user is null)
+        {
+            return null;
+        }
+
+        var enabledTunerHostIds = user.GetPreference(PreferenceKind.EnabledTunerHostIds);
+
+        if (enabledTunerHostIds.Length == 0 || user.HasPermission(PermissionKind.EnableAllTunerHosts))
+        {
+            return null;
+        }
+
+        return new HashSet<string>(enabledTunerHostIds, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Gets a mapping of external channel id to the set of configured tuner host ids that currently carry it.
+    /// </summary>
+    private async Task<Dictionary<string, HashSet<string>>> GetChannelTunerHostIds(bool enableCache, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tunerInfo in _config.GetLiveTvConfiguration().TunerHosts)
+        {
+            var host = _tunerHosts.FirstOrDefault(h => string.Equals(h.Type, tunerInfo.Type, StringComparison.OrdinalIgnoreCase));
+            if (host is not IConfiguredTunerChannelProvider provider)
+            {
+                continue;
+            }
+
+            List<ChannelInfo> channels;
+            try
+            {
+                channels = await provider.GetChannels(tunerInfo, enableCache, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting channels for tuner host {TunerId}", tunerInfo.Id);
+                continue;
+            }
+
+            foreach (var channel in channels)
+            {
+                if (!result.TryGetValue(channel.Id, out var ids))
+                {
+                    ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    result[channel.Id] = ids;
+                }
+
+                ids.Add(tunerInfo.Id);
+            }
+        }
+
+        return result;
     }
 }

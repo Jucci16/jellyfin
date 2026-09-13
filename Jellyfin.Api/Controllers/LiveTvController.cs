@@ -138,7 +138,7 @@ public class LiveTvController : BaseJellyfinApiController
     [HttpGet("Channels")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Authorize(Policy = Policies.LiveTvAccess)]
-    public ActionResult<QueryResult<BaseItemDto>> GetLiveTvChannels(
+    public async Task<ActionResult<QueryResult<BaseItemDto>>> GetLiveTvChannels(
         [FromQuery] ChannelType? type,
         [FromQuery] Guid? userId,
         [FromQuery] int? startIndex,
@@ -165,7 +165,7 @@ public class LiveTvController : BaseJellyfinApiController
         var dtoOptions = new DtoOptions { Fields = fields }
             .AddAdditionalDtoOptions(enableImages, enableUserData, imageTypeLimit, enableImageTypes);
 
-        var channelResult = _liveTvManager.GetInternalChannels(
+        var channelResult = await _liveTvManager.GetInternalChannels(
             new LiveTvChannelQuery
             {
                 ChannelType = type,
@@ -186,7 +186,7 @@ public class LiveTvController : BaseJellyfinApiController
                 AddCurrentProgram = addCurrentProgram
             },
             dtoOptions,
-            CancellationToken.None);
+            CancellationToken.None).ConfigureAwait(false);
 
         var user = userId.IsNullOrEmpty()
             ? null

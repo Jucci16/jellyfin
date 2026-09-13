@@ -46,6 +46,7 @@ namespace Jellyfin.LiveTv
         private readonly IChannelManager _channelManager;
         private readonly IRecordingsManager _recordingsManager;
         private readonly LiveTvDtoService _tvDtoService;
+        private readonly ITunerHostManager _tunerHostManager;
         private readonly ILiveTvService[] _services;
 
         public LiveTvManager(
@@ -59,6 +60,7 @@ namespace Jellyfin.LiveTv
             IChannelManager channelManager,
             IRecordingsManager recordingsManager,
             LiveTvDtoService liveTvDtoService,
+            ITunerHostManager tunerHostManager,
             IEnumerable<ILiveTvService> services)
         {
             _config = config;
@@ -71,6 +73,7 @@ namespace Jellyfin.LiveTv
             _channelManager = channelManager;
             _tvDtoService = liveTvDtoService;
             _recordingsManager = recordingsManager;
+            _tunerHostManager = tunerHostManager;
             _services = services.ToArray();
 
             var defaultService = _services.OfType<DefaultLiveTvService>().First();
@@ -110,13 +113,22 @@ namespace Jellyfin.LiveTv
                 }));
         }
 
-        public QueryResult<BaseItem> GetInternalChannels(LiveTvChannelQuery query, DtoOptions dtoOptions, CancellationToken cancellationToken)
+        public async Task<QueryResult<BaseItem>> GetInternalChannels(LiveTvChannelQuery query, DtoOptions dtoOptions, CancellationToken cancellationToken)
         {
             var user = query.UserId.Equals(default)
                 ? null
                 : _userManager.GetUserById(query.UserId);
 
             var topFolder = GetInternalLiveTvFolder(cancellationToken);
+
+            var allowedChannelIds = user is null
+                ? null
+                : await _tunerHostManager.GetAllowedChannelItemIds(user, cancellationToken).ConfigureAwait(false);
+
+            if (allowedChannelIds is not null && allowedChannelIds.Count == 0)
+            {
+                return new QueryResult<BaseItem>(query.StartIndex ?? 0, 0, []);
+            }
 
             var internalQuery = new InternalItemsQuery(user)
             {
@@ -133,6 +145,11 @@ namespace Jellyfin.LiveTv
                 Limit = query.Limit,
                 DtoOptions = dtoOptions
             };
+
+            if (allowedChannelIds is not null)
+            {
+                internalQuery.ItemIds = allowedChannelIds.ToArray();
+            }
 
             var orderBy = internalQuery.OrderBy.ToList();
 
@@ -201,6 +218,28 @@ namespace Jellyfin.LiveTv
 
             var topFolder = GetInternalLiveTvFolder(cancellationToken);
 
+            var allowedChannelIds = user is null
+                ? null
+                : await _tunerHostManager.GetAllowedChannelItemIds(user, cancellationToken).ConfigureAwait(false);
+
+            if (allowedChannelIds is not null && allowedChannelIds.Count == 0)
+            {
+                return new QueryResult<BaseItemDto>(query.StartIndex, 0, []);
+            }
+
+            var channelIds = query.ChannelIds;
+            if (allowedChannelIds is not null)
+            {
+                channelIds = channelIds.Count == 0
+                    ? allowedChannelIds.ToArray()
+                    : channelIds.Where(allowedChannelIds.Contains).ToArray();
+
+                if (channelIds.Count == 0)
+                {
+                    return new QueryResult<BaseItemDto>(query.StartIndex, 0, []);
+                }
+            }
+
             if (query.OrderBy.Count == 0)
             {
                 // Unless something else was specified, order by start date to take advantage of a specialized index
@@ -219,7 +258,7 @@ namespace Jellyfin.LiveTv
                 MinStartDate = query.MinStartDate,
                 MaxEndDate = query.MaxEndDate,
                 MaxStartDate = query.MaxStartDate,
-                ChannelIds = query.ChannelIds,
+                ChannelIds = channelIds,
                 IsMovie = query.IsMovie,
                 IsSeries = query.IsSeries,
                 IsSports = query.IsSports,
@@ -269,11 +308,20 @@ namespace Jellyfin.LiveTv
                 returnArray);
         }
 
-        public QueryResult<BaseItem> GetRecommendedProgramsInternal(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken)
+        public async Task<QueryResult<BaseItem>> GetRecommendedProgramsInternal(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken)
         {
             var user = query.User;
 
             var topFolder = GetInternalLiveTvFolder(cancellationToken);
+
+            var allowedChannelIds = user is null
+                ? null
+                : await _tunerHostManager.GetAllowedChannelItemIds(user, cancellationToken).ConfigureAwait(false);
+
+            if (allowedChannelIds is not null && allowedChannelIds.Count == 0)
+            {
+                return new QueryResult<BaseItem>(query.StartIndex, 0, []);
+            }
 
             var internalQuery = new InternalItemsQuery(user)
             {
@@ -291,6 +339,11 @@ namespace Jellyfin.LiveTv
                 DtoOptions = options,
                 GenreIds = query.GenreIds
             };
+
+            if (allowedChannelIds is not null)
+            {
+                internalQuery.ChannelIds = allowedChannelIds.ToArray();
+            }
 
             if (query.Limit.HasValue && query.Limit.Value > 0)
             {
@@ -321,21 +374,21 @@ namespace Jellyfin.LiveTv
                 programs.ToArray());
         }
 
-        public Task<QueryResult<BaseItemDto>> GetRecommendedProgramsAsync(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken)
+        public async Task<QueryResult<BaseItemDto>> GetRecommendedProgramsAsync(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken)
         {
             if (!(query.IsAiring ?? false))
             {
-                return GetPrograms(query, options, cancellationToken);
+                return await GetPrograms(query, options, cancellationToken).ConfigureAwait(false);
             }
 
             RemoveFields(options);
 
-            var internalResult = GetRecommendedProgramsInternal(query, options, cancellationToken);
+            var internalResult = await GetRecommendedProgramsInternal(query, options, cancellationToken).ConfigureAwait(false);
 
-            return Task.FromResult(new QueryResult<BaseItemDto>(
+            return new QueryResult<BaseItemDto>(
                 query.StartIndex,
                 internalResult.TotalRecordCount,
-                _dtoService.GetBaseItemDtos(internalResult.Items, options, query.User)));
+                _dtoService.GetBaseItemDtos(internalResult.Items, options, query.User));
         }
 
         private int GetRecommendationScore(LiveTvProgram program, User user, bool factorChannelWatchCount)

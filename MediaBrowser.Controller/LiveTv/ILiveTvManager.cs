@@ -170,7 +170,7 @@ namespace MediaBrowser.Controller.LiveTv
         /// <param name="options">The options.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Recommended programs.</returns>
-        QueryResult<BaseItem> GetRecommendedProgramsInternal(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken);
+        Task<QueryResult<BaseItem>> GetRecommendedProgramsInternal(InternalItemsQuery query, DtoOptions options, CancellationToken cancellationToken);
 
         /// <summary>
         /// Gets the live tv information.
@@ -207,7 +207,7 @@ namespace MediaBrowser.Controller.LiveTv
         /// <param name="dtoOptions">The options.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Internal channels.</returns>
-        QueryResult<BaseItem> GetInternalChannels(LiveTvChannelQuery query, DtoOptions dtoOptions, CancellationToken cancellationToken);
+        Task<QueryResult<BaseItem>> GetInternalChannels(LiveTvChannelQuery query, DtoOptions dtoOptions, CancellationToken cancellationToken);
 
         /// <summary>
         /// Adds the information to program dto.

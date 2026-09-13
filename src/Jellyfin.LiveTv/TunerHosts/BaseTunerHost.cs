@@ -24,7 +24,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.LiveTv.TunerHosts
 {
-    public abstract class BaseTunerHost : IUserAwareTunerHost
+    public abstract class BaseTunerHost : IUserAwareTunerHost, IConfiguredTunerChannelProvider
     {
         private readonly ConcurrentDictionary<string, List<ChannelInfo>> _cache;
 

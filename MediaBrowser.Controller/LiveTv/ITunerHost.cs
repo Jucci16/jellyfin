@@ -84,4 +84,22 @@ namespace MediaBrowser.Controller.LiveTv
         /// <returns>Live stream wrapped in a task.</returns>
         Task<ILiveStream> GetChannelStream(string channelId, string streamId, Guid userId, IList<ILiveStream> currentLiveStreams, CancellationToken cancellationToken);
     }
+
+    /// <summary>
+    /// Optional capability for an <see cref="ITunerHost"/> that can report the channels carried by
+    /// one specific configured <see cref="TunerHostInfo"/> entry, rather than the type's deduplicated
+    /// aggregate across all its configured entries. Used to resolve which tuner host(s) currently
+    /// carry a given channel, e.g. for per-user tuner host restrictions.
+    /// </summary>
+    public interface IConfiguredTunerChannelProvider
+    {
+        /// <summary>
+        /// Gets the channels carried by the specified configured tuner host entry.
+        /// </summary>
+        /// <param name="tuner">The configured tuner host entry.</param>
+        /// <param name="enableCache">Option to enable using cache.</param>
+        /// <param name="cancellationToken">The CancellationToken for this operation.</param>
+        /// <returns>The channels carried by the specified tuner host entry.</returns>
+        Task<List<ChannelInfo>> GetChannels(TunerHostInfo tuner, bool enableCache, CancellationToken cancellationToken);
+    }
 }

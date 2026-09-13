@@ -10,6 +10,7 @@ using Jellyfin.Extensions;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Querying;
 using MediaBrowser.Model.Search;
@@ -27,6 +28,7 @@ public class SearchManager : ISearchManager
     private readonly IUserManager _userManager;
     private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
     private readonly IItemQueryHelpers _queryHelpers;
+    private readonly ITunerHostManager _tunerHostManager;
     private readonly ILogger<SearchManager> _logger;
     private IExternalSearchProvider[] _externalProviders = [];
     private IInternalSearchProvider[] _internalProviders = [];
@@ -38,18 +40,21 @@ public class SearchManager : ISearchManager
     /// <param name="userManager">The user manager.</param>
     /// <param name="dbProvider">The database context factory.</param>
     /// <param name="queryHelpers">The shared item query helpers.</param>
+    /// <param name="tunerHostManager">The tuner host manager.</param>
     /// <param name="logger">The logger.</param>
     public SearchManager(
         ILibraryManager libraryManager,
         IUserManager userManager,
         IDbContextFactory<JellyfinDbContext> dbProvider,
         IItemQueryHelpers queryHelpers,
+        ITunerHostManager tunerHostManager,
         ILogger<SearchManager> logger)
     {
         _libraryManager = libraryManager;
         _userManager = userManager;
         _dbProvider = dbProvider;
         _queryHelpers = queryHelpers;
+        _tunerHostManager = tunerHostManager;
         _logger = logger;
     }
 
@@ -233,6 +238,15 @@ public class SearchManager : ISearchManager
         else
         {
             items = _libraryManager.GetItemList(internalQuery);
+        }
+
+        if (user is not null)
+        {
+            var allowedChannelIds = await _tunerHostManager.GetAllowedChannelItemIds(user, cancellationToken).ConfigureAwait(false);
+            if (allowedChannelIds is not null)
+            {
+                items = items.Where(item => IsAllowedLiveTvItem(item, allowedChannelIds)).ToList();
+            }
         }
 
         var orderedResults = items
@@ -450,4 +464,17 @@ public class SearchManager : ISearchManager
             list.Add(value);
         }
     }
+
+    /// <summary>
+    /// Checks whether a search result item is allowed under a user's tuner host restriction.
+    /// Non-LiveTV items are always allowed; this only restricts LiveTvChannel/LiveTvProgram items
+    /// to those currently carried by one of the user's assigned tuner hosts.
+    /// </summary>
+    private static bool IsAllowedLiveTvItem(BaseItem item, HashSet<Guid> allowedChannelIds)
+        => item switch
+        {
+            LiveTvChannel channel => allowedChannelIds.Contains(channel.Id),
+            LiveTvProgram program => allowedChannelIds.Contains(program.ChannelId),
+            _ => true
+        };
 }

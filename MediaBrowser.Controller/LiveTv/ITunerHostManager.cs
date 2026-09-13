@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.LiveTv;
 
@@ -55,4 +57,13 @@ public interface ITunerHostManager
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> to use.</param>
     /// <returns>A task that represents the scanning operation.</returns>
     Task ScanForTunerDeviceChanges(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the set of LiveTvChannel library item ids that at least one of the given user's
+    /// allowed tuner hosts currently carries.
+    /// </summary>
+    /// <param name="user">The user to check tuner host access for.</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/> to use.</param>
+    /// <returns>The allowed channel item ids, or <c>null</c> if the user is not restricted to specific tuner hosts.</returns>
+    Task<HashSet<Guid>?> GetAllowedChannelItemIds(User user, CancellationToken cancellationToken);
 }
