@@ -172,4 +172,22 @@ namespace MediaBrowser.Controller.LiveTv
     {
         Task<ILiveStream> GetChannelStreamWithDirectStreamProvider(string channelId, string streamId, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken);
     }
+
+    /// <summary>
+    /// Optional capability for an <see cref="ILiveTvService"/> that can restrict which tuner it uses based on
+    /// the requesting user, e.g. per-user tuner host restrictions.
+    /// </summary>
+    public interface IUserAwareDirectStreamProvider
+    {
+        /// <summary>
+        /// Gets the channel stream on behalf of a specific user.
+        /// </summary>
+        /// <param name="channelId">The channel identifier.</param>
+        /// <param name="streamId">The stream identifier.</param>
+        /// <param name="userId">The id of the user requesting the stream.</param>
+        /// <param name="currentLiveStreams">The current live streams.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+        /// <returns>Live stream wrapped in a task.</returns>
+        Task<ILiveStream> GetChannelStreamWithDirectStreamProvider(string channelId, string streamId, Guid userId, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken);
+    }
 }

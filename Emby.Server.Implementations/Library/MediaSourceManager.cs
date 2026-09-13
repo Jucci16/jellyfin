@@ -642,7 +642,9 @@ namespace Emby.Server.Implementations.Library
 
                 var currentLiveStreams = _openStreams.Values.ToList();
 
-                liveStream = await provider.OpenMediaSource(keyId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+                liveStream = provider is IUserAwareMediaSourceProvider userAwareProvider
+                    ? await userAwareProvider.OpenMediaSource(keyId, request.UserId, currentLiveStreams, cancellationToken).ConfigureAwait(false)
+                    : await provider.OpenMediaSource(keyId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
 
                 mediaSource = liveStream.MediaSource;
 

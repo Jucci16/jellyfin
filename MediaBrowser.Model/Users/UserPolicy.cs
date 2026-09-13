@@ -61,6 +61,9 @@ namespace MediaBrowser.Model.Users
             EnabledDevices = Array.Empty<string>();
             EnableAllDevices = true;
 
+            EnabledTunerHostIds = Array.Empty<string>();
+            EnableAllTunerHosts = true;
+
             EnableContentDownloading = true;
             EnablePublicSharing = true;
             EnableRemoteAccess = true;
@@ -160,6 +163,16 @@ namespace MediaBrowser.Model.Users
         public string[] EnabledDevices { get; set; }
 
         public bool EnableAllDevices { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of tuner host ids this user is restricted to. Ignored when <see cref="EnableAllTunerHosts"/> is <c>true</c> or this list is empty.
+        /// </summary>
+        public string[] EnabledTunerHostIds { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this user may use any configured tuner host. When <c>false</c>, live TV streams are restricted to the tuner hosts listed in <see cref="EnabledTunerHostIds"/>.
+        /// </summary>
+        public bool EnableAllTunerHosts { get; set; }
 
         public Guid[] EnabledChannels { get; set; }
 

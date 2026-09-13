@@ -27,7 +27,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.LiveTv
 {
-    public sealed class DefaultLiveTvService : ILiveTvService, ISupportsDirectStreamProvider, ISupportsNewTimerIds
+    public sealed class DefaultLiveTvService : ILiveTvService, ISupportsDirectStreamProvider, IUserAwareDirectStreamProvider, ISupportsNewTimerIds
     {
         public const string ServiceName = "Emby";
 
@@ -460,6 +460,9 @@ namespace Jellyfin.LiveTv
         }
 
         public async Task<ILiveStream> GetChannelStreamWithDirectStreamProvider(string channelId, string streamId, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
+            => await GetChannelStreamWithDirectStreamProvider(channelId, streamId, Guid.Empty, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+
+        public async Task<ILiveStream> GetChannelStreamWithDirectStreamProvider(string channelId, string streamId, Guid userId, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Streaming Channel {Id}", channelId);
 
@@ -480,7 +483,9 @@ namespace Jellyfin.LiveTv
             {
                 try
                 {
-                    result = await hostInstance.GetChannelStream(channelId, streamId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+                    result = hostInstance is IUserAwareTunerHost userAwareHost
+                        ? await userAwareHost.GetChannelStream(channelId, streamId, userId, currentLiveStreams, cancellationToken).ConfigureAwait(false)
+                        : await hostInstance.GetChannelStream(channelId, streamId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
 
                     var openedMediaSource = result.MediaSource;
 

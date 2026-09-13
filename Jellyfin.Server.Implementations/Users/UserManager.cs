@@ -510,6 +510,7 @@ namespace Jellyfin.Server.Implementations.Users
                     EnableMediaConversion = user.HasPermission(PermissionKind.EnableMediaConversion),
                     EnableAllChannels = user.HasPermission(PermissionKind.EnableAllChannels),
                     EnableAllDevices = user.HasPermission(PermissionKind.EnableAllDevices),
+                    EnableAllTunerHosts = user.HasPermission(PermissionKind.EnableAllTunerHosts),
                     EnableAllFolders = user.HasPermission(PermissionKind.EnableAllFolders),
                     EnableRemoteControlOfOtherUsers = user.HasPermission(PermissionKind.EnableRemoteControlOfOtherUsers),
                     EnablePlaybackRemuxing = user.HasPermission(PermissionKind.EnablePlaybackRemuxing),
@@ -522,6 +523,7 @@ namespace Jellyfin.Server.Implementations.Users
                     AllowedTags = user.GetPreference(PreferenceKind.AllowedTags),
                     EnabledChannels = user.GetPreferenceValues<Guid>(PreferenceKind.EnabledChannels),
                     EnabledDevices = user.GetPreference(PreferenceKind.EnabledDevices),
+                    EnabledTunerHostIds = user.GetPreference(PreferenceKind.EnabledTunerHostIds),
                     EnabledFolders = user.GetPreferenceValues<Guid>(PreferenceKind.EnabledFolders),
                     EnableContentDeletionFromFolders = user.GetPreference(PreferenceKind.EnableContentDeletionFromFolders),
                     SyncPlayAccess = user.SyncPlayAccess,
@@ -891,6 +893,7 @@ namespace Jellyfin.Server.Implementations.Users
                     user.SetPermission(PermissionKind.EnableMediaConversion, policy.EnableMediaConversion);
                     user.SetPermission(PermissionKind.EnableAllChannels, policy.EnableAllChannels);
                     user.SetPermission(PermissionKind.EnableAllDevices, policy.EnableAllDevices);
+                    user.SetPermission(PermissionKind.EnableAllTunerHosts, policy.EnableAllTunerHosts);
                     user.SetPermission(PermissionKind.EnableAllFolders, policy.EnableAllFolders);
                     user.SetPermission(PermissionKind.EnableRemoteControlOfOtherUsers, policy.EnableRemoteControlOfOtherUsers);
                     user.SetPermission(PermissionKind.EnablePlaybackRemuxing, policy.EnablePlaybackRemuxing);
@@ -912,6 +915,7 @@ namespace Jellyfin.Server.Implementations.Users
                     user.SetPreference(PreferenceKind.AllowedTags, policy.AllowedTags);
                     user.SetPreference(PreferenceKind.EnabledChannels, policy.EnabledChannels);
                     user.SetPreference(PreferenceKind.EnabledDevices, policy.EnabledDevices);
+                    user.SetPreference(PreferenceKind.EnabledTunerHostIds, policy.EnabledTunerHostIds);
                     user.SetPreference(PreferenceKind.EnabledFolders, policy.EnabledFolders);
                     user.SetPreference(PreferenceKind.EnableContentDeletionFromFolders, policy.EnableContentDeletionFromFolders);
 

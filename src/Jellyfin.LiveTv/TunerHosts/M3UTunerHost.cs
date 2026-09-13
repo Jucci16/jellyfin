@@ -48,8 +48,9 @@ namespace Jellyfin.LiveTv.TunerHosts
             IHttpClientFactory httpClientFactory,
             IServerApplicationHost appHost,
             INetworkManager networkManager,
-            IStreamHelper streamHelper)
-            : base(config, logger, fileSystem)
+            IStreamHelper streamHelper,
+            IUserManager userManager)
+            : base(config, logger, fileSystem, userManager)
         {
             _httpClientFactory = httpClientFactory;
             _appHost = appHost;

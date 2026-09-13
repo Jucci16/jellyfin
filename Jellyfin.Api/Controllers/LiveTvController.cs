@@ -954,6 +954,17 @@ public class LiveTvController : BaseJellyfinApiController
         => await _tunerHostManager.SaveTunerHost(tunerHostInfo).ConfigureAwait(false);
 
     /// <summary>
+    /// Gets the configured tuner hosts.
+    /// </summary>
+    /// <response code="200">Configured tuner hosts returned.</response>
+    /// <returns>An <see cref="OkResult"/> containing the configured tuner hosts.</returns>
+    [HttpGet("TunerHosts")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TunerHostInfo>> GetTunerHosts()
+        => Ok(_tunerHostManager.GetConfiguredTunerHosts());
+
+    /// <summary>
     /// Deletes a tuner host.
     /// </summary>
     /// <param name="id">Tuner host id.</param>

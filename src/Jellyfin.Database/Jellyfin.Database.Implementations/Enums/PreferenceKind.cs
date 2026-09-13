@@ -68,5 +68,10 @@ public enum PreferenceKind
     /// <summary>
     /// A list of allowed tags.
     /// </summary>
-    AllowedTags = 12
+    AllowedTags = 12,
+
+    /// <summary>
+    /// A list of enabled tuner host ids.
+    /// </summary>
+    EnabledTunerHostIds = 13
 }

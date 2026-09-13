@@ -23,6 +23,12 @@ public interface ITunerHostManager
     IEnumerable<NameIdPair> GetTunerHostTypes();
 
     /// <summary>
+    /// Gets the currently configured <see cref="TunerHostInfo"/> entries.
+    /// </summary>
+    /// <returns>The configured <see cref="TunerHostInfo"/>s.</returns>
+    IReadOnlyList<TunerHostInfo> GetConfiguredTunerHosts();
+
+    /// <summary>
     /// Saves the tuner host.
     /// </summary>
     /// <param name="info">Turner host to save.</param>

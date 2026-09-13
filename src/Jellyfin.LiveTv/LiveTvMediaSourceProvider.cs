@@ -22,7 +22,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.LiveTv
 {
-    public class LiveTvMediaSourceProvider : IMediaSourceProvider
+    public class LiveTvMediaSourceProvider : IMediaSourceProvider, IUserAwareMediaSourceProvider
     {
         // Do not use a pipe here because Roku http requests to the server will fail, without any explicit error message.
         private const char StreamIdDelimiter = '_';
@@ -129,11 +129,15 @@ namespace Jellyfin.LiveTv
 
         /// <inheritdoc />
         public async Task<ILiveStream> OpenMediaSource(string openToken, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
+            => await OpenMediaSource(openToken, Guid.Empty, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+
+        /// <inheritdoc />
+        public async Task<ILiveStream> OpenMediaSource(string openToken, Guid userId, List<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
         {
             var keys = openToken.Split(StreamIdDelimiter, 3);
             var mediaSourceId = keys.Length >= 3 ? keys[2] : null;
 
-            var info = await GetChannelStream(keys[1], mediaSourceId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+            var info = await GetChannelStream(keys[1], mediaSourceId, userId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
             var liveStream = info.Item2;
 
             return liveStream;
@@ -259,6 +263,7 @@ namespace Jellyfin.LiveTv
         private async Task<Tuple<MediaSourceInfo, ILiveStream>> GetChannelStream(
             string id,
             string mediaSourceId,
+            Guid userId,
             List<ILiveStream> currentLiveStreams,
             CancellationToken cancellationToken)
         {
@@ -277,7 +282,12 @@ namespace Jellyfin.LiveTv
 #pragma warning disable CA1859 // TODO: Analyzer bug?
             ILiveStream liveStream;
 #pragma warning restore CA1859
-            if (service is ISupportsDirectStreamProvider supportsManagedStream)
+            if (service is IUserAwareDirectStreamProvider userAwareService)
+            {
+                liveStream = await userAwareService.GetChannelStreamWithDirectStreamProvider(channel.ExternalId, mediaSourceId, userId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
+                info = liveStream.MediaSource;
+            }
+            else if (service is ISupportsDirectStreamProvider supportsManagedStream)
             {
                 liveStream = await supportsManagedStream.GetChannelStreamWithDirectStreamProvider(channel.ExternalId, mediaSourceId, currentLiveStreams, cancellationToken).ConfigureAwait(false);
                 info = liveStream.MediaSource;

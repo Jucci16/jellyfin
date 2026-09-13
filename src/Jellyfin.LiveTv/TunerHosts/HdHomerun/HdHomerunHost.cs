@@ -49,8 +49,9 @@ namespace Jellyfin.LiveTv.TunerHosts.HdHomerun
             IHttpClientFactory httpClientFactory,
             IServerApplicationHost appHost,
             ISocketFactory socketFactory,
-            IStreamHelper streamHelper)
-            : base(config, logger, fileSystem)
+            IStreamHelper streamHelper,
+            IUserManager userManager)
+            : base(config, logger, fileSystem, userManager)
         {
             _httpClientFactory = httpClientFactory;
             _appHost = appHost;

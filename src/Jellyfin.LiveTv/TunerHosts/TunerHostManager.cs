@@ -59,6 +59,10 @@ public class TunerHostManager : ITunerHostManager
         });
 
     /// <inheritdoc />
+    public IReadOnlyList<TunerHostInfo> GetConfiguredTunerHosts()
+        => _config.GetLiveTvConfiguration().TunerHosts;
+
+    /// <inheritdoc />
     public async Task<TunerHostInfo> SaveTunerHost(TunerHostInfo info, bool dataSourceChanged = true)
     {
         info = JsonSerializer.Deserialize<TunerHostInfo>(JsonSerializer.SerializeToUtf8Bytes(info))!;

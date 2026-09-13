@@ -2,6 +2,7 @@
 
 #pragma warning disable CS1591
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,5 +65,23 @@ namespace MediaBrowser.Controller.LiveTv
         /// <param name="info">The information.</param>
         /// <returns>Task.</returns>
         Task Validate(TunerHostInfo info);
+    }
+
+    /// <summary>
+    /// Optional capability for an <see cref="ITunerHost"/> that can restrict which configured tuner host
+    /// entries it will use based on the requesting user, e.g. per-user tuner host restrictions.
+    /// </summary>
+    public interface IUserAwareTunerHost
+    {
+        /// <summary>
+        /// Gets the channel stream on behalf of a specific user.
+        /// </summary>
+        /// <param name="channelId">The channel identifier.</param>
+        /// <param name="streamId">The stream identifier.</param>
+        /// <param name="userId">The id of the user requesting the stream.</param>
+        /// <param name="currentLiveStreams">The current live streams.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
+        /// <returns>Live stream wrapped in a task.</returns>
+        Task<ILiveStream> GetChannelStream(string channelId, string streamId, Guid userId, IList<ILiveStream> currentLiveStreams, CancellationToken cancellationToken);
     }
 }

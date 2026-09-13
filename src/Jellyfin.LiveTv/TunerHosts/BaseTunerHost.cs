@@ -10,6 +10,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data;
+using Jellyfin.Database.Implementations.Enums;
+using Jellyfin.Extensions;
 using Jellyfin.LiveTv.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;
@@ -21,15 +24,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.LiveTv.TunerHosts
 {
-    public abstract class BaseTunerHost
+    public abstract class BaseTunerHost : IUserAwareTunerHost
     {
         private readonly ConcurrentDictionary<string, List<ChannelInfo>> _cache;
 
-        protected BaseTunerHost(IServerConfigurationManager config, ILogger<BaseTunerHost> logger, IFileSystem fileSystem)
+        protected BaseTunerHost(IServerConfigurationManager config, ILogger<BaseTunerHost> logger, IFileSystem fileSystem, IUserManager userManager)
         {
             Config = config;
             Logger = logger;
             FileSystem = fileSystem;
+            UserManager = userManager;
             _cache = new ConcurrentDictionary<string, List<ChannelInfo>>();
         }
 
@@ -38,6 +42,8 @@ namespace Jellyfin.LiveTv.TunerHosts
         protected ILogger<BaseTunerHost> Logger { get; }
 
         protected IFileSystem FileSystem { get; }
+
+        protected IUserManager UserManager { get; }
 
         public virtual bool IsSupported => true;
 
@@ -169,6 +175,36 @@ namespace Jellyfin.LiveTv.TunerHosts
         protected abstract Task<ILiveStream> GetChannelStream(TunerHostInfo tunerHost, ChannelInfo channel, string streamId, IList<ILiveStream> currentLiveStreams, CancellationToken cancellationToken);
 
         public async Task<ILiveStream> GetChannelStream(string channelId, string streamId, IList<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
+            => await GetChannelStreamInternal(channelId, streamId, currentLiveStreams, null, cancellationToken).ConfigureAwait(false);
+
+        public async Task<ILiveStream> GetChannelStream(string channelId, string streamId, Guid userId, IList<ILiveStream> currentLiveStreams, CancellationToken cancellationToken)
+            => await GetChannelStreamInternal(channelId, streamId, currentLiveStreams, GetAllowedTunerHostIds(userId), cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// Gets the set of tuner host ids the given user is restricted to, or <c>null</c> if the user is unrestricted.
+        /// </summary>
+        /// <param name="userId">The id of the user requesting the stream.</param>
+        /// <returns>A case-insensitive set of allowed tuner host ids, or <c>null</c> if the user has unrestricted access to all tuner hosts.</returns>
+        private HashSet<string> GetAllowedTunerHostIds(Guid userId)
+        {
+            if (userId.IsEmpty())
+            {
+                return null;
+            }
+
+            var user = UserManager.GetUserById(userId);
+
+            var enabledTunerHostIds = user?.GetPreference(PreferenceKind.EnabledTunerHostIds) ?? [];
+
+            if (user is null || enabledTunerHostIds.Length == 0 || user.HasPermission(PermissionKind.EnableAllTunerHosts))
+            {
+                return null;
+            }
+
+            return new HashSet<string>(enabledTunerHostIds, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private async Task<ILiveStream> GetChannelStreamInternal(string channelId, string streamId, IList<ILiveStream> currentLiveStreams, HashSet<string> allowedTunerHostIds, CancellationToken cancellationToken)
         {
             ArgumentException.ThrowIfNullOrEmpty(channelId);
 
@@ -199,6 +235,11 @@ namespace Jellyfin.LiveTv.TunerHosts
                 }
             }
 
+            if (allowedTunerHostIds is not null)
+            {
+                hostsWithChannel = hostsWithChannel.Where(t => allowedTunerHostIds.Contains(t.Item1.Id)).ToList();
+            }
+
             foreach (var hostTuple in hostsWithChannel)
             {
                 var host = hostTuple.Item1;
@@ -217,6 +258,11 @@ namespace Jellyfin.LiveTv.TunerHosts
                 {
                     Logger.LogError(ex, "Error opening tuner");
                 }
+            }
+
+            if (allowedTunerHostIds is not null)
+            {
+                throw new LiveTvConflictException($"No tuner host assigned to this user is available to stream channel '{channelId}'. The user's assigned tuner(s) may be busy, offline, or do not carry this channel.");
             }
 
             throw new LiveTvConflictException("Unable to find host to play channel");

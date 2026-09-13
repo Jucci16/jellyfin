@@ -41,7 +41,8 @@ namespace Jellyfin.LiveTv.Tests
                 Mock.Of<IHttpClientFactory>(),
                 Mock.Of<IServerApplicationHost>(),
                 Mock.Of<INetworkManager>(),
-                Mock.Of<IStreamHelper>());
+                Mock.Of<IStreamHelper>(),
+                Mock.Of<IUserManager>());
 
             var sources = await host.GetMediaSources(
                 new TunerHostInfo { TunerCount = 0, EnableStreamLooping = false },
@@ -60,8 +61,9 @@ namespace Jellyfin.LiveTv.Tests
                 IHttpClientFactory httpClientFactory,
                 IServerApplicationHost appHost,
                 INetworkManager networkManager,
-                IStreamHelper streamHelper)
-                : base(config, mediaSourceManager, logger, fileSystem, httpClientFactory, appHost, networkManager, streamHelper)
+                IStreamHelper streamHelper,
+                IUserManager userManager)
+                : base(config, mediaSourceManager, logger, fileSystem, httpClientFactory, appHost, networkManager, streamHelper, userManager)
             {
             }
 

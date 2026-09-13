@@ -16,6 +16,7 @@ using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.Events;
+using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +55,7 @@ public sealed class UserManagerUpdateUserTests : IDisposable
         var appPaths = new Mock<IServerApplicationPaths>();
         appPaths.Setup(x => x.ProgramDataPath).Returns(Path.GetTempPath());
         configManager.Setup(x => x.ApplicationPaths).Returns(appPaths.Object);
+        configManager.Setup(x => x.Configuration).Returns(new ServerConfiguration());
 
         var appHost = new Mock<IApplicationHost>();
 
@@ -138,6 +140,25 @@ public sealed class UserManagerUpdateUserTests : IDisposable
 
         await using var context = CreateDbContext();
         Assert.Equal(reloaded.Permissions.Count, await context.Permissions.CountAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task UpdatePolicyAsync_PersistsTunerHostRestriction()
+    {
+        var user = await _userManager.CreateUserAsync("tuneruser");
+        var policy = _userManager.GetUserDto(user).Policy;
+        Assert.True(policy.EnableAllTunerHosts);
+        Assert.Empty(policy.EnabledTunerHostIds);
+
+        policy.EnableAllTunerHosts = false;
+        policy.EnabledTunerHostIds = ["tuner1", "tuner2"];
+
+        await _userManager.UpdatePolicyAsync(user.Id, policy);
+
+        var reloaded = _userManager.GetUserById(user.Id)!;
+        var reloadedPolicy = _userManager.GetUserDto(reloaded).Policy;
+        Assert.False(reloadedPolicy.EnableAllTunerHosts);
+        Assert.Equal(new[] { "tuner1", "tuner2" }, reloadedPolicy.EnabledTunerHostIds);
     }
 
     private JellyfinDbContext CreateDbContext()
